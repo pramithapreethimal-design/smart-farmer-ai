@@ -21,6 +21,9 @@ from langchain_core.messages import (
     AIMessage,
     ToolMessage
 )
+from app.farmer_profile import get_farmer_profile
+
+from app.tools.weather import get_weather_by_location
 
 
 # =====================================
@@ -29,7 +32,8 @@ from langchain_core.messages import (
 
 tools = [
     calculate_fertilizer,
-    get_crop_information
+    get_crop_information,
+    get_weather_by_location
 ]
 
 
@@ -53,16 +57,23 @@ llm_with_tools = llm.bind_tools(tools)
 # =====================================
 # 4. MAIN AI AGENT FUNCTION
 # =====================================
+def ask_farmer(question, chat_history, farmer_id):
 
-def ask_farmer(question, chat_history):
+    profile = get_farmer_profile(farmer_id)
 
-    # Load system prompt and conversation history
+    if profile is None:
+        profile = {
+            "message": "Farmer profile not available."
+        }
+
     messages = list(
         farmer_prompt.invoke({
             "question": question,
-            "chat_history": chat_history
+            "chat_history": chat_history,
+            "farmer_profile": profile
         }).messages
     )
+
 
     max_iterations = 5
 
@@ -121,7 +132,10 @@ if __name__ == "__main__":
     initialize_database()
 
     # Demo farmer ID
-    farmer_id = "farmer_001"
+    farmer_id = input("Enter your Farmer ID: ").strip()
+
+    if not farmer_id:
+        farmer_id = "farmer_001"
 
     # Load previous conversation
     chat_history = []
@@ -164,7 +178,7 @@ if __name__ == "__main__":
             continue
 
         # Get AI response
-        answer = ask_farmer(question, chat_history)
+        answer = ask_farmer(question, chat_history,farmer_id)
 
         print("\nSmart Farmer AI:")
         print(answer)
@@ -182,3 +196,17 @@ if __name__ == "__main__":
         save_message(farmer_id, "human", question)
 
         save_message(farmer_id, "ai", answer)
+# Load farmer profile
+profile = get_farmer_profile(farmer_id)
+
+print("\n========== FARMER PROFILE ==========")
+
+if profile:
+    print(f"Name       : {profile['name']}")
+    print(f"Location   : {profile['location']}")
+    print(f"Main Crop  : {profile['main_crop']}")
+    print(f"Land Area  : {profile['land_area']} acres")
+else:
+    print("Farmer profile not found.")
+
+print("===================================\n")
